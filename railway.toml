@@ -3,14 +3,8 @@ builder = "NIXPACKS"
 
 [deploy]
 startCommand = "npm start"
-healthCheckPath = "/health"
-healthCheckTimeout = 300
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 3
 
 [env]
 NODE_ENV = "production"
-
-[build.watchPatterns]
-include = ["src/**/*", "package.json", "package-lock.json"]
-exclude = ["node_modules/**/*", "tests/**/*", "*.md"]
