@@ -88,10 +88,15 @@ chatterboxClient.interceptors.response.use(
  */
 const testConnection = async () => {
   try {
-    // Test with a simple API call (if available)
-    // Since ChatterBox doesn't have a dedicated health endpoint,
-    // we'll test with a minimal request
-    const response = await chatterboxClient.get('/');
+    // Test with a minimal join request that should return a validation error
+    // This tests authentication without actually joining a meeting
+    const response = await chatterboxClient.post('/join', {
+      platform: 'googlemeet',
+      meetingId: 'test-connection-check',
+      botName: 'Connection Test',
+      language: 'en',
+      model: 'nova-3'
+    });
     
     logger.info('ChatterBox API connection successful', {
       status: response.status,
@@ -100,20 +105,19 @@ const testConnection = async () => {
     
     return {
       status: 'connected',
-      responseTime: response.headers['x-response-time'] || 'unknown'
+      responseTime: 'unknown'
     };
   } catch (error) {
-    // If the root endpoint doesn't exist, that's actually expected
-    // We'll consider a 404 as a successful connection test
-    if (error.response?.status === 404) {
-      logger.info('ChatterBox API connection successful (404 expected)', {
-        status: 404,
+    // If we get a 400 (bad request) for invalid meeting ID, that means auth worked
+    if (error.response?.status === 400) {
+      logger.info('ChatterBox API connection successful (400 expected for test meeting ID)', {
+        status: 400,
         timestamp: new Date().toISOString()
       });
       
       return {
         status: 'connected',
-        note: 'API accessible (404 expected for root endpoint)'
+        note: 'API accessible (400 expected for test meeting ID)'
       };
     }
     
