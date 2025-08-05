@@ -186,14 +186,6 @@ const executeRawQuery = async (query, params = []) => {
   }
 };
 
-// Test connection on module load
-testConnection().catch(error => {
-  logger.error('Initial database connection test failed', {
-    error: error.message,
-    timestamp: new Date().toISOString()
-  });
-});
-
 logger.info('Database configuration initialized', {
   url: process.env.SUPABASE_URL,
   timestamp: new Date().toISOString()

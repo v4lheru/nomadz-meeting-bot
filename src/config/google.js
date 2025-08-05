@@ -247,22 +247,6 @@ const createShareableLink = async (fileId) => {
   }
 };
 
-// Test connection on module load
-testConnection().catch(error => {
-  logger.error('Initial Google APIs connection test failed', {
-    error: error.message,
-    timestamp: new Date().toISOString()
-  });
-});
-
-// Verify folder access on module load
-verifyAllFolders().catch(error => {
-  logger.error('Initial folder verification failed', {
-    error: error.message,
-    timestamp: new Date().toISOString()
-  });
-});
-
 logger.info('Google APIs configuration initialized', {
   clientId: process.env.GOOGLE_CLIENT_ID.substring(0, 20) + '...',
   timestamp: new Date().toISOString()
