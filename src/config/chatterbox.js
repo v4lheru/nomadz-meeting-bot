@@ -279,12 +279,19 @@ const validateWebhookPayload = (payload) => {
  */
 const isRecordingUrlValid = async (recordingUrl) => {
   try {
-    const response = await axios.head(recordingUrl, { timeout: 5000 });
-    return response.status === 200;
+    // Use GET with range header to check if URL is accessible without downloading full file
+    const response = await axios.get(recordingUrl, { 
+      timeout: 10000,
+      headers: {
+        'Range': 'bytes=0-1023' // Only get first 1KB to test accessibility
+      }
+    });
+    return response.status === 200 || response.status === 206; // 206 = Partial Content
   } catch (error) {
     logger.warn('Recording URL validation failed', {
       url: recordingUrl.substring(0, 50) + '...',
       error: error.message,
+      status: error.response?.status,
       timestamp: new Date().toISOString()
     });
     return false;
