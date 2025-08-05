@@ -66,19 +66,25 @@ app.use(helmet({
 logger.info('Security middleware configured');
 
 // CORS configuration
+logger.info('Setting up CORS...');
 app.use(cors({
   origin: process.env.NODE_ENV === 'production' 
     ? (process.env.BASE_URL ? [process.env.BASE_URL] : ['*'])
     : ['http://localhost:3000', 'http://127.0.0.1:3000'],
   credentials: true,
 }));
+logger.info('CORS configured');
 
 // Rate limiting
+logger.info('Setting up rate limiting...');
 app.use(rateLimit);
+logger.info('Rate limiting configured');
 
 // Body parsing middleware
+logger.info('Setting up body parsing...');
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+logger.info('Body parsing configured');
 
 // Request logging
 app.use((req, res, next) => {
