@@ -114,9 +114,12 @@ class TranscriptService {
         },
         textStyle: {
           fontSize: { magnitude: 11, unit: 'PT' },
-          fontFamily: 'Arial'
+          weightedFontFamily: {
+            fontFamily: 'Arial',
+            weight: 400
+          }
         },
-        fields: 'fontSize,fontFamily'
+        fields: 'fontSize,weightedFontFamily'
       }
     });
 
