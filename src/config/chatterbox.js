@@ -229,7 +229,12 @@ const forceLeaveSession = async (sessionId) => {
   try {
     logger.logChatterBoxEvent('force_leave', 'started', { sessionId });
 
-    const response = await chatterboxClient.post(`/session/${sessionId}/leave`);
+    // Use the correct API endpoint for leaving sessions
+    const response = await axios.post(`https://api.chatter-box.io/session/${sessionId}/leave`, {}, {
+      headers: {
+        'Authorization': `Bearer ${API_KEY}`
+      }
+    });
 
     logger.logChatterBoxEvent('force_leave', 'success', { sessionId });
 
