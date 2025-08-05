@@ -87,6 +87,7 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 logger.info('Body parsing configured');
 
 // Request logging
+logger.info('Setting up request logging...');
 app.use((req, res, next) => {
   logger.info(`${req.method} ${req.path}`, {
     ip: req.ip,
@@ -95,20 +96,28 @@ app.use((req, res, next) => {
   });
   next();
 });
+logger.info('Request logging configured');
 
 // Health check endpoint
+logger.info('Setting up health check endpoint...');
 app.get('/health', healthController.healthCheck);
+logger.info('Health check endpoint configured');
 
 // Webhook endpoints
+logger.info('Setting up webhook endpoints...');
 app.post('/webhook/meeting-started', webhookController.handleMeetingStarted);
 app.post('/webhook/chatterbox', webhookController.handleChatterBoxWebhook);
+logger.info('Webhook endpoints configured');
 
 // API endpoints
+logger.info('Setting up API endpoints...');
 app.get('/api/meetings/:id/status', webhookController.getMeetingStatus);
 app.post('/api/meetings/:id/retry', webhookController.retryMeetingProcessing);
 app.post('/api/meetings/:id/process', webhookController.manualProcessMeeting);
+logger.info('API endpoints configured');
 
 // 404 handler
+logger.info('Setting up 404 handler...');
 app.use('*', (req, res) => {
   res.status(404).json({
     error: 'Not Found',
@@ -116,9 +125,12 @@ app.use('*', (req, res) => {
     timestamp: new Date().toISOString()
   });
 });
+logger.info('404 handler configured');
 
 // Global error handler
+logger.info('Setting up global error handler...');
 app.use(errorHandler);
+logger.info('Global error handler configured');
 
 // Graceful shutdown handler
 const gracefulShutdown = (signal) => {
