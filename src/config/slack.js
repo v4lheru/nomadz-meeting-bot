@@ -259,22 +259,6 @@ const formatDuration = (startTime, endTime) => {
   }
 };
 
-// Test connection on module load
-testConnection().catch(error => {
-  logger.error('Initial Slack API connection test failed', {
-    error: error.message,
-    timestamp: new Date().toISOString()
-  });
-});
-
-// Verify channel access on module load
-verifyChannelAccess().catch(error => {
-  logger.error('Initial Slack channel verification failed', {
-    error: error.message,
-    timestamp: new Date().toISOString()
-  });
-});
-
 logger.info('Slack configuration initialized', {
   defaultChannel: DEFAULT_CHANNEL,
   timestamp: new Date().toISOString()
