@@ -46,10 +46,13 @@ try {
   throw error;
 }
 
+logger.info('Creating Express app...');
 const app = express();
 const PORT = process.env.PORT || 3000;
+logger.info('Express app created successfully');
 
 // Security middleware
+logger.info('Setting up security middleware...');
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
@@ -60,6 +63,7 @@ app.use(helmet({
     },
   },
 }));
+logger.info('Security middleware configured');
 
 // CORS configuration
 app.use(cors({
