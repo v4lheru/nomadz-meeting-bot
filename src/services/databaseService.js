@@ -452,7 +452,7 @@ class DatabaseService {
     try {
       const { data, error } = await supabase
         .from('meetings')
-        .select('count(*)')
+        .select('id')
         .limit(1);
       
       if (error) {
