@@ -7,13 +7,44 @@ const logger = require('./utils/logger');
 const errorHandler = require('./middlewares/errorHandler');
 const rateLimit = require('./middlewares/rateLimit');
 
-// Import controllers
-const webhookController = require('./controllers/webhookController');
-const healthController = require('./controllers/healthController');
+// Import controllers with error handling
+let webhookController, healthController, pollStatusJob, cleanupJob;
 
-// Import background jobs
-const pollStatusJob = require('./jobs/pollStatusJob');
-const cleanupJob = require('./jobs/cleanupJob');
+try {
+  logger.info('Loading webhook controller...');
+  webhookController = require('./controllers/webhookController');
+  logger.info('Webhook controller loaded successfully');
+} catch (error) {
+  logger.error('Failed to load webhook controller:', error);
+  throw error;
+}
+
+try {
+  logger.info('Loading health controller...');
+  healthController = require('./controllers/healthController');
+  logger.info('Health controller loaded successfully');
+} catch (error) {
+  logger.error('Failed to load health controller:', error);
+  throw error;
+}
+
+try {
+  logger.info('Loading poll status job...');
+  pollStatusJob = require('./jobs/pollStatusJob');
+  logger.info('Poll status job loaded successfully');
+} catch (error) {
+  logger.error('Failed to load poll status job:', error);
+  throw error;
+}
+
+try {
+  logger.info('Loading cleanup job...');
+  cleanupJob = require('./jobs/cleanupJob');
+  logger.info('Cleanup job loaded successfully');
+} catch (error) {
+  logger.error('Failed to load cleanup job:', error);
+  throw error;
+}
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -33,7 +64,7 @@ app.use(helmet({
 // CORS configuration
 app.use(cors({
   origin: process.env.NODE_ENV === 'production' 
-    ? [process.env.BASE_URL] 
+    ? (process.env.BASE_URL ? [process.env.BASE_URL] : ['*'])
     : ['http://localhost:3000', 'http://127.0.0.1:3000'],
   credentials: true,
 }));
