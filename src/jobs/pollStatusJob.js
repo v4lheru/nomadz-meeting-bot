@@ -118,8 +118,8 @@ class PollStatusJob {
       const statusAge = Date.now() - new Date(meeting.updated_at).getTime();
       const statusAgeMinutes = Math.floor(statusAge / (1000 * 60));
 
-      // If meeting has been in bot_joined status for more than 10 minutes, something might be wrong
-      if (meeting.status === 'bot_joined' && statusAgeMinutes > 10) {
+      // If meeting has been in bot_joined status for more than 2 minutes, check if recording is ready
+      if (meeting.status === 'bot_joined' && statusAgeMinutes > 2) {
         logger.warn('Meeting stuck in bot_joined status', {
           meetingId: meeting.id,
           title: meeting.meeting_title,
