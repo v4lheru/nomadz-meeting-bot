@@ -59,6 +59,9 @@ class PollStatusJob {
    */
   async pollMeetingStatuses() {
     try {
+      // First check if database is accessible
+      await databaseService.healthCheck();
+      
       // Get meetings that are in 'bot_joined' or 'recording' status for more than 5 minutes
       // These might be stuck and need manual intervention
       const stuckMeetings = await databaseService.getMeetingsByStatus('bot_joined', 10);
@@ -81,6 +84,16 @@ class PollStatusJob {
       }
 
     } catch (error) {
+      // Don't crash the service if database is not ready or tables don't exist
+      if (error.message.includes('relation "meetings" does not exist') || 
+          error.message.includes('SUPABASE_SERVICE_ROLE_KEY')) {
+        logger.warn('Database not ready, skipping poll cycle', {
+          error: error.message,
+          timestamp: new Date().toISOString()
+        });
+        return;
+      }
+      
       logger.error('Poll status job failed', {
         error: error.message,
         timestamp: new Date().toISOString()

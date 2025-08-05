@@ -1,11 +1,10 @@
 const cron = require('node-cron');
 const logger = require('../utils/logger');
-const meetingService = require('../services/meetingService');
 const databaseService = require('../services/databaseService');
 
 /**
- * Background job to clean up old failed meetings and logs
- * Runs daily at 2 AM to maintain database hygiene
+ * Background job to clean up old meetings and processing logs
+ * Runs daily at 2 AM UTC to maintain database hygiene
  */
 class CleanupJob {
   constructor() {
@@ -22,7 +21,7 @@ class CleanupJob {
       return;
     }
 
-    // Run daily at 2:00 AM
+    // Run daily at 2 AM UTC
     this.task = cron.schedule('0 2 * * *', async () => {
       await this.performCleanup();
     }, {
@@ -34,7 +33,7 @@ class CleanupJob {
     this.isRunning = true;
 
     logger.info('Cleanup job started', {
-      schedule: 'daily at 2:00 AM UTC',
+      schedule: 'daily at 2 AM UTC',
       timestamp: new Date().toISOString()
     });
   }
@@ -58,38 +57,55 @@ class CleanupJob {
    * Perform cleanup operations
    */
   async performCleanup() {
-    const startTime = Date.now();
-    
     try {
-      logger.info('Starting daily cleanup', {
+      logger.info('Starting cleanup job', {
         timestamp: new Date().toISOString()
       });
 
+      // First check if database is accessible
+      await databaseService.healthCheck();
+
       // Clean up old failed meetings (older than 7 days)
-      const cleanupResult = await meetingService.cleanupOldMeetings(7);
+      const oldMeetings = await databaseService.getMeetingsForCleanup(7);
       
+      if (oldMeetings.length > 0) {
+        logger.info('Found old meetings to clean up', {
+          count: oldMeetings.length,
+          timestamp: new Date().toISOString()
+        });
+
+        for (const meeting of oldMeetings) {
+          await databaseService.deleteMeeting(meeting.id);
+          logger.info('Deleted old meeting', {
+            meetingId: meeting.id,
+            title: meeting.meeting_title,
+            status: meeting.status,
+            age: Math.floor((Date.now() - new Date(meeting.created_at).getTime()) / (1000 * 60 * 60 * 24))
+          });
+        }
+      }
+
       // Clean up old processing logs (older than 30 days)
-      const oldLogsResult = await this.cleanupOldLogs(30);
-      
-      // Log cleanup statistics
-      const cleanupTime = Date.now() - startTime;
-      
-      logger.info('Daily cleanup completed', {
-        meetingsFound: cleanupResult.totalFound,
-        meetingsCleaned: cleanupResult.cleaned,
-        meetingsFailedToClean: cleanupResult.failed,
-        oldLogsFound: oldLogsResult.totalFound,
-        oldLogsCleaned: oldLogsResult.cleaned,
-        oldLogsFailedToClean: oldLogsResult.failed,
-        cleanupTimeMs: cleanupTime,
-        cleanupTimeSeconds: Math.round(cleanupTime / 1000),
+      await this.cleanupOldLogs(30);
+
+      logger.info('Cleanup job completed', {
+        cleanedMeetings: oldMeetings.length,
         timestamp: new Date().toISOString()
       });
 
     } catch (error) {
-      logger.error('Daily cleanup failed', {
+      // Don't crash the service if database is not ready or tables don't exist
+      if (error.message.includes('relation "meetings" does not exist') || 
+          error.message.includes('SUPABASE_SERVICE_ROLE_KEY')) {
+        logger.warn('Database not ready, skipping cleanup cycle', {
+          error: error.message,
+          timestamp: new Date().toISOString()
+        });
+        return;
+      }
+      
+      logger.error('Cleanup job failed', {
         error: error.message,
-        stack: error.stack,
         timestamp: new Date().toISOString()
       });
     }
@@ -126,12 +142,7 @@ class CleanupJob {
           olderThanDays,
           timestamp: new Date().toISOString()
         });
-        
-        return {
-          totalFound: 0,
-          cleaned: 0,
-          failed: 0
-        };
+        return;
       }
 
       // Delete old logs
@@ -147,16 +158,9 @@ class CleanupJob {
       logger.info('Old logs cleanup completed', {
         totalFound,
         cleaned: totalFound,
-        failed: 0,
         olderThanDays,
         timestamp: new Date().toISOString()
       });
-
-      return {
-        totalFound,
-        cleaned: totalFound,
-        failed: 0
-      };
 
     } catch (error) {
       logger.error('Failed to cleanup old logs', {
@@ -164,143 +168,7 @@ class CleanupJob {
         error: error.message,
         timestamp: new Date().toISOString()
       });
-
-      return {
-        totalFound: 0,
-        cleaned: 0,
-        failed: 1
-      };
     }
-  }
-
-  /**
-   * Clean up orphaned processing logs (logs without corresponding meetings)
-   */
-  async cleanupOrphanedLogs() {
-    try {
-      logger.info('Starting orphaned logs cleanup', {
-        timestamp: new Date().toISOString()
-      });
-
-      // Find logs that don't have corresponding meetings
-      const { data: orphanedLogs, error: findError } = await databaseService.supabase
-        .from('processing_logs')
-        .select('id, meeting_id')
-        .not('meeting_id', 'in', 
-          databaseService.supabase
-            .from('meetings')
-            .select('id')
-        );
-
-      if (findError) {
-        throw findError;
-      }
-
-      const totalFound = orphanedLogs?.length || 0;
-
-      if (totalFound === 0) {
-        logger.info('No orphaned logs found', {
-          timestamp: new Date().toISOString()
-        });
-        return { totalFound: 0, cleaned: 0, failed: 0 };
-      }
-
-      // Delete orphaned logs
-      const orphanedIds = orphanedLogs.map(log => log.id);
-      const { error: deleteError } = await databaseService.supabase
-        .from('processing_logs')
-        .delete()
-        .in('id', orphanedIds);
-
-      if (deleteError) {
-        throw deleteError;
-      }
-
-      logger.info('Orphaned logs cleanup completed', {
-        totalFound,
-        cleaned: totalFound,
-        failed: 0,
-        timestamp: new Date().toISOString()
-      });
-
-      return {
-        totalFound,
-        cleaned: totalFound,
-        failed: 0
-      };
-
-    } catch (error) {
-      logger.error('Failed to cleanup orphaned logs', {
-        error: error.message,
-        timestamp: new Date().toISOString()
-      });
-
-      return {
-        totalFound: 0,
-        cleaned: 0,
-        failed: 1
-      };
-    }
-  }
-
-  /**
-   * Get database statistics
-   */
-  async getDatabaseStats() {
-    try {
-      // Get meeting counts by status
-      const { data: meetingStats, error: meetingError } = await databaseService.supabase
-        .from('meetings')
-        .select('status')
-        .then(result => {
-          if (result.error) throw result.error;
-          
-          const stats = {};
-          result.data.forEach(meeting => {
-            stats[meeting.status] = (stats[meeting.status] || 0) + 1;
-          });
-          
-          return { data: stats, error: null };
-        });
-
-      if (meetingError) {
-        throw meetingError;
-      }
-
-      // Get total processing logs count
-      const { count: logsCount, error: logsError } = await databaseService.supabase
-        .from('processing_logs')
-        .select('*', { count: 'exact', head: true });
-
-      if (logsError) {
-        throw logsError;
-      }
-
-      return {
-        meetings: meetingStats,
-        totalMeetings: Object.values(meetingStats).reduce((sum, count) => sum + count, 0),
-        totalLogs: logsCount,
-        timestamp: new Date().toISOString()
-      };
-
-    } catch (error) {
-      logger.error('Failed to get database stats', {
-        error: error.message,
-        timestamp: new Date().toISOString()
-      });
-      return null;
-    }
-  }
-
-  /**
-   * Run manual cleanup (for testing/debugging)
-   */
-  async runManualCleanup() {
-    logger.info('Running manual cleanup', {
-      timestamp: new Date().toISOString()
-    });
-
-    await this.performCleanup();
   }
 
   /**
@@ -310,7 +178,6 @@ class CleanupJob {
     return {
       isRunning: this.isRunning,
       hasTask: !!this.task,
-      nextRun: this.task ? this.task.nextDate() : null,
       timestamp: new Date().toISOString()
     };
   }
