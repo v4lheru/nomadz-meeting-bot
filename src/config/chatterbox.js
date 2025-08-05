@@ -282,14 +282,6 @@ const isRecordingUrlValid = async (recordingUrl) => {
   }
 };
 
-// Test connection on module load
-testConnection().catch(error => {
-  logger.error('Initial ChatterBox API connection test failed', {
-    error: error.message,
-    timestamp: new Date().toISOString()
-  });
-});
-
 logger.info('ChatterBox API configuration initialized', {
   baseUrl: CHATTERBOX_BASE_URL,
   timestamp: new Date().toISOString()
