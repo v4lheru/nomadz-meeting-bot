@@ -4,7 +4,7 @@ const helmet = require('helmet');
 require('dotenv').config();
 
 const logger = require('./utils/logger');
-const errorHandler = require('./middlewares/errorHandler');
+const { errorHandler } = require('./middlewares/errorHandler');
 const rateLimit = require('./middlewares/rateLimit');
 
 // Import controllers with error handling
