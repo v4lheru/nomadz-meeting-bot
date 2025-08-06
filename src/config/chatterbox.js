@@ -94,8 +94,8 @@ const testConnection = async () => {
       platform: 'googlemeet',
       meetingId: 'test-connection-check',
       botName: 'Connection Test',
-      language: 'en',
-      model: 'nova-3'
+      language: 'en'
+      // No model specified - Google Meet uses native transcription
     });
     
     logger.info('ChatterBox API connection successful', {
@@ -172,8 +172,8 @@ const joinMeeting = async ({ meetingId, botName, webhookUrl }) => {
       meetingId,
       botName,
       webhookUrl,
-      language: 'multi',
-      model: 'nova-3'
+      language: 'multi'
+      // No model specified - Google Meet uses native transcription (better quality)
     });
 
     logger.logChatterBoxEvent('join_meeting', 'success', {
