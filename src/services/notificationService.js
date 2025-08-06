@@ -27,12 +27,19 @@ class NotificationService {
         ? Math.round((new Date(meeting.processing_completed_at) - new Date(meeting.processing_started_at)) / 1000)
         : null;
 
+      // Get list of actual speakers from transcript
+      let speakersList = 'No speakers identified';
+      if (transcriptData && transcriptData.transcript && transcriptData.transcript.length > 0) {
+        const uniqueSpeakers = [...new Set(transcriptData.transcript.map(entry => entry.speaker).filter(Boolean))];
+        speakersList = uniqueSpeakers.length > 0 ? uniqueSpeakers.join(', ') : 'No speakers identified';
+      }
+
       const blocks = [
         {
           type: 'header',
           text: {
             type: 'plain_text',
-            text: '✅ Meeting Recording Complete',
+            text: `✅ ${meeting.meeting_title} Recording Completed`,
             emoji: true
           }
         },
@@ -41,36 +48,21 @@ class NotificationService {
           fields: [
             {
               type: 'mrkdwn',
-              text: `*Meeting:*\n${meeting.meeting_title}`
+              text: `*Date:*\n${new Date(meeting.meeting_started_at || meeting.created_at).toLocaleString('en-US', {
+                weekday: 'short',
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                timeZoneName: 'short'
+              })}`
             },
             {
               type: 'mrkdwn',
-              text: `*Duration:*\n${duration}`
-            },
-            {
-              type: 'mrkdwn',
-              text: `*File Size:*\n${fileSize}`
-            },
-            {
-              type: 'mrkdwn',
-              text: `*Processing Time:*\n${processingTime ? `${processingTime}s` : 'Unknown'}`
+              text: `*Speakers:*\n${speakersList}`
             }
           ]
-        },
-        {
-          type: 'section',
-          text: {
-            type: 'mrkdwn',
-            text: `*Conference ID:* ${meeting.conference_id}\n*Date:* ${new Date(meeting.meeting_started_at || meeting.created_at).toLocaleString('en-US', {
-              weekday: 'short',
-              year: 'numeric',
-              month: 'short',
-              day: 'numeric',
-              hour: '2-digit',
-              minute: '2-digit',
-              timeZoneName: 'short'
-            })}`
-          }
         },
         {
           type: 'actions',
@@ -98,27 +90,6 @@ class NotificationService {
         }
       ];
 
-      // Add transcript stats if available
-      if (transcriptData && transcriptData.transcript && transcriptData.transcript.length > 0) {
-        const speakers = new Set(transcriptData.transcript.map(entry => entry.speaker)).size;
-        const totalWords = transcriptData.transcript.reduce((sum, entry) => 
-          sum + (entry.text ? entry.text.trim().split(/\s+/).length : 0), 0
-        );
-
-        blocks.splice(-1, 0, {
-          type: 'section',
-          fields: [
-            {
-              type: 'mrkdwn',
-              text: `*Speakers:*\n${speakers}`
-            },
-            {
-              type: 'mrkdwn',
-              text: `*Words:*\n${totalWords.toLocaleString()}`
-            }
-          ]
-        });
-      }
 
       const response = await slack.chat.postMessage({
         channel: DEFAULT_CHANNEL,
