@@ -226,24 +226,18 @@ class TranscriptService {
     const transcriptLines = ['\n🎙️ TRANSCRIPT\n'];
     
     let currentSpeaker = null;
-    let speakerCount = 0;
-    const speakerMap = new Map();
 
     for (const entry of transcriptArray) {
-      const { speaker, text, timeStart, timeEnd } = entry;
+      // ChatterBox uses 'start' and 'end', not 'timeStart' and 'timeEnd'
+      const { speaker, text, start, end } = entry;
       
       if (!text || text.trim().length === 0) {
         continue;
       }
 
-      // Map speakers to consistent names
-      if (!speakerMap.has(speaker)) {
-        speakerCount++;
-        speakerMap.set(speaker, `Speaker ${speakerCount}`);
-      }
-      
-      const speakerName = speakerMap.get(speaker);
-      const timestamp = this.formatTimestamp(timeStart);
+      // Use the actual speaker name from ChatterBox
+      const speakerName = speaker || 'Unknown Speaker';
+      const timestamp = this.formatTimestamp(start);
       
       // Add speaker header if speaker changed
       if (currentSpeaker !== speakerName) {
@@ -387,9 +381,10 @@ class TranscriptService {
         totalWords += entry.text.trim().split(/\s+/).length;
       }
       
-      if (entry.timeStart) {
-        minTime = Math.min(minTime, entry.timeStart);
-        maxTime = Math.max(maxTime, entry.timeEnd || entry.timeStart);
+      // ChatterBox uses 'start' and 'end', not 'timeStart' and 'timeEnd'
+      if (entry.start) {
+        minTime = Math.min(minTime, entry.start);
+        maxTime = Math.max(maxTime, entry.end || entry.start);
       }
     }
 
