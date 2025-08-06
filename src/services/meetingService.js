@@ -204,15 +204,14 @@ class MeetingService {
       const sessionData = await chatterboxService.getSessionData(sessionId);
       
       if (sessionData.recordingLink) {
-        // Check if URL is still valid
-        const isValid = await chatterboxService.isRecordingUrlValid(sessionData.recordingLink);
+        // Skip URL validation - trust ChatterBox and attempt processing
+        logger.info('Retrying processing without URL validation', {
+          meetingId,
+          sessionId,
+          timestamp: new Date().toISOString()
+        });
         
-        if (isValid) {
-          // Process with existing URL
-          return await this.processRecordingUrgently(meetingId, sessionData.recordingLink, sessionId);
-        } else {
-          throw new Error('Recording URL has expired and cannot be retried');
-        }
+        return await this.processRecordingUrgently(meetingId, sessionData.recordingLink, sessionId);
       } else {
         throw new Error('No recording URL available for retry');
       }

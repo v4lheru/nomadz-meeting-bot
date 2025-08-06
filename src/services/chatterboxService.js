@@ -117,27 +117,18 @@ class ChatterBoxService {
 
   /**
    * Check if recording URL is still valid (not expired)
-   * ⚠️ CRITICAL: ChatterBox URLs expire in 5 minutes!
+   * ⚠️ DEPRECATED: URL validation removed due to false failures with AWS S3 signed URLs
+   * Always returns true to avoid blocking processing
    */
   async isRecordingUrlValid(recordingUrl) {
-    try {
-      const isValid = await chatterboxConfig.isRecordingUrlValid(recordingUrl);
-      
-      logger.info('Recording URL validation result', {
-        url: recordingUrl.substring(0, 50) + '...',
-        isValid,
-        timestamp: new Date().toISOString()
-      });
-
-      return isValid;
-    } catch (error) {
-      logger.error('Failed to validate recording URL', {
-        url: recordingUrl.substring(0, 50) + '...',
-        error: error.message,
-        timestamp: new Date().toISOString()
-      });
-      return false;
-    }
+    logger.warn('URL validation is deprecated - always returning true', {
+      url: recordingUrl.substring(0, 50) + '...',
+      reason: 'URL validation causes false failures with AWS S3 signed URLs',
+      timestamp: new Date().toISOString()
+    });
+    
+    // Always return true - trust ChatterBox URLs
+    return true;
   }
 
   /**
