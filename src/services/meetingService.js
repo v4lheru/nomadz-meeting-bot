@@ -61,18 +61,13 @@ class MeetingService {
         }
       }
 
-      // Step 2: Validate recording URL is still accessible
-      logger.logProcessingStep(meetingId, 'validate_recording_url', 'started');
-      
-      const isUrlValid = await this.processStep(
+      // Step 2: Skip URL validation - ChatterBox provides valid URLs
+      // URL validation was causing false failures with AWS S3 signed URLs
+      logger.info('Skipping URL validation - trusting ChatterBox URL', {
         meetingId,
-        'validate_recording_url',
-        () => chatterboxService.isRecordingUrlValid(processedRecordingUrl)
-      );
-
-      if (!isUrlValid) {
-        throw new Error('Recording URL has expired or is not accessible');
-      }
+        hasUrl: !!processedRecordingUrl,
+        timestamp: new Date().toISOString()
+      });
 
       // Step 3: Download and stream recording to Google Drive immediately
       logger.logProcessingStep(meetingId, 'stream_to_drive', 'started');
