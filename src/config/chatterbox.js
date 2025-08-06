@@ -276,26 +276,18 @@ const validateWebhookPayload = (payload) => {
 
 /**
  * Check if recording URL is still valid (not expired)
+ * ⚠️ DEPRECATED: URL validation removed due to false failures with AWS S3 signed URLs
+ * Always returns true to avoid blocking processing
  */
 const isRecordingUrlValid = async (recordingUrl) => {
-  try {
-    // Use GET with range header to check if URL is accessible without downloading full file
-    const response = await axios.get(recordingUrl, { 
-      timeout: 10000,
-      headers: {
-        'Range': 'bytes=0-1023' // Only get first 1KB to test accessibility
-      }
-    });
-    return response.status === 200 || response.status === 206; // 206 = Partial Content
-  } catch (error) {
-    logger.warn('Recording URL validation failed', {
-      url: recordingUrl.substring(0, 50) + '...',
-      error: error.message,
-      status: error.response?.status,
-      timestamp: new Date().toISOString()
-    });
-    return false;
-  }
+  logger.warn('URL validation is deprecated - always returning true', {
+    url: recordingUrl.substring(0, 50) + '...',
+    reason: 'URL validation causes false failures with AWS S3 signed URLs',
+    timestamp: new Date().toISOString()
+  });
+  
+  // Always return true - trust ChatterBox URLs
+  return true;
 };
 
 logger.info('ChatterBox API configuration initialized', {
