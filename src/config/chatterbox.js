@@ -164,7 +164,8 @@ const joinMeeting = async ({ meetingId, botName, webhookUrl }) => {
     logger.logChatterBoxEvent('join_meeting', 'started', {
       meetingId,
       botName,
-      webhookUrl
+      webhookUrl,
+      noTranscriptTimeoutSeconds: 1200
     });
 
     const response = await chatterboxClient.post('/join', {
@@ -172,7 +173,8 @@ const joinMeeting = async ({ meetingId, botName, webhookUrl }) => {
       meetingId,
       botName,
       webhookUrl,
-      language: 'multi'
+      language: 'multi',
+      noTranscriptTimeoutSeconds: 1200 // Auto-leave after 20 minutes of silence
       // No model specified - Google Meet uses native transcription (better quality)
     });
 
