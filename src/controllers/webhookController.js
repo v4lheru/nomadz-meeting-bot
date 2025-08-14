@@ -50,7 +50,7 @@ const handleMeetingStarted = [
       // Join bot to meeting immediately
       const sessionData = await chatterboxService.joinMeeting({
         meetingId: conferenceData.conferenceId,
-        botName: `Nomadz Bot - ${summary}`,
+        botName: 'Nomadz Meeting Bot',
         webhookUrl: `${process.env.BASE_URL}/webhook/chatterbox`
       });
 
