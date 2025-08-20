@@ -51,7 +51,7 @@ const handleMeetingStarted = [
       const sessionData = await chatterboxService.joinMeeting({
         meetingId: conferenceData.conferenceId,
         botName: 'Nomadz Meeting Bot',
-        webhookUrl: `${process.env.BASE_URL}/webhook/chatterbox`
+        webhookUrl: `${process.env.BASE_URL}/webhook/chatterbox-direct`
       });
 
       // Update meeting with session information
@@ -177,6 +177,24 @@ const handleChatterBoxWebhook = [
         res.status(200).json({
           success: true,
           message: 'Recording started notification received',
+          sessionId,
+          timestamp: new Date().toISOString()
+        });
+
+      } else if (type === 'transcript') {
+        const { sessionId, timeStart, timeEnd, speaker, text } = payload;
+        
+        // Log transcript events but don't process them (just acknowledge)
+        logger.logChatterBoxEvent(sessionId, 'transcript_received', {
+          speaker,
+          textLength: text?.length || 0,
+          timeStart,
+          timeEnd
+        });
+
+        res.status(200).json({
+          success: true,
+          message: 'Transcript event received',
           sessionId,
           timestamp: new Date().toISOString()
         });
