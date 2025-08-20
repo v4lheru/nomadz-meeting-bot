@@ -91,45 +91,13 @@ async function handleSessionStarted(payload) {
   
   logger.logChatterBoxEvent(sessionId, 'session_started', { timestamp });
   
-  // First, check if meeting already exists by session ID
+  // Check if meeting already exists (in case of duplicate webhooks)
   let meeting = await databaseService.getMeetingBySessionId(sessionId);
   
   if (!meeting) {
-    // Try to find existing meeting by conference ID (from ChatterBox session data)
+    // Create new meeting record since n8n called ChatterBox directly
     try {
-      const chatterboxService = require('../services/chatterboxService');
-      const sessionData = await chatterboxService.getSessionData(sessionId);
-      
-      if (sessionData.meetingId) {
-        // Look for existing meeting with this conference ID
-        meeting = await databaseService.getMeetingByConferenceId(sessionData.meetingId);
-        
-        if (meeting) {
-          // Found existing meeting! Update it with session ID
-          await databaseService.updateMeeting(meeting.id, {
-            chatterbox_session_id: sessionId,
-            status: 'recording',
-            bot_join_status: 'joined'
-          });
-          
-          logger.logMeetingEvent(meeting.id, 'session_linked_to_existing_meeting', {
-            sessionId,
-            conferenceId: sessionData.meetingId,
-            existingTitle: meeting.meeting_title
-          });
-        }
-      }
-    } catch (error) {
-      logger.warn('Could not get session data to find existing meeting', {
-        sessionId,
-        error: error.message
-      });
-    }
-  }
-  
-  // If still no meeting found, create a new one (fallback for ChatterBox-First architecture)
-  if (!meeting) {
-    try {
+      // Try to get additional session data from ChatterBox
       const chatterboxService = require('../services/chatterboxService');
       let sessionData = null;
       let meetingTitle = `Meeting ${sessionId.substring(0, 8)}`;
@@ -139,6 +107,9 @@ async function handleSessionStarted(payload) {
         sessionData = await chatterboxService.getSessionData(sessionId);
         if (sessionData.meetingId) {
           conferenceId = sessionData.meetingId;
+        }
+        // Use a more descriptive title if we have conference ID
+        if (conferenceId !== 'unknown') {
           meetingTitle = `Google Meet ${conferenceId}`;
         }
       } catch (error) {
@@ -148,9 +119,9 @@ async function handleSessionStarted(payload) {
         });
       }
       
-      // Create meeting record as fallback
+      // Create meeting record when bot starts (ChatterBox-First architecture)
       meeting = await databaseService.createMeeting({
-        calendar_event_id: `chatterbox-${sessionId}`,
+        calendar_event_id: `chatterbox-${sessionId}`, // Unique identifier
         chatterbox_session_id: sessionId,
         conference_id: conferenceId,
         meeting_title: meetingTitle,
@@ -160,7 +131,7 @@ async function handleSessionStarted(payload) {
         meeting_started_at: new Date(timestamp * 1000)
       });
       
-      logger.logMeetingEvent(meeting.id, 'meeting_created_from_chatterbox_fallback', {
+      logger.logMeetingEvent(meeting.id, 'meeting_created_from_chatterbox', {
         sessionId,
         conferenceId,
         meetingTitle
@@ -172,7 +143,7 @@ async function handleSessionStarted(payload) {
         error: error.message,
         timestamp: new Date().toISOString()
       });
-      return;
+      return; // Exit early if we can't create the meeting record
     }
   } else {
     // Update existing meeting status
