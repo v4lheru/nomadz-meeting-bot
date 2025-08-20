@@ -96,25 +96,62 @@ async function handleSessionStarted(payload) {
   
   if (!meeting) {
     try {
-      // Get conference ID from ChatterBox session
-      const chatterboxService = require('../services/chatterboxService');
-      const sessionData = await chatterboxService.getSessionData(sessionId);
-      const conferenceId = sessionData.meetingId;
-      
-      if (!conferenceId) {
-        throw new Error('No conference ID available from ChatterBox session');
-      }
-      
-      // Link session to calendar event
+      // First, try to find calendar event that already has this session ID
+      // (This would happen if n8n stored it when calling ChatterBox)
       const calendarController = require('./calendarController');
-      const calendarEvent = await calendarController.linkSessionToEvent(conferenceId, sessionId);
+      let calendarEvent = await calendarController.getEventBySessionId(sessionId);
+      
+      if (!calendarEvent) {
+        // If not found by session ID, we need to find the calendar event by conference ID
+        // The issue is that ChatterBox's getSessionData() doesn't return meetingId
+        // But we can find the calendar event that was created for this meeting
+        // by looking for recent events that don't have a session ID yet
+        try {
+          // Get recent calendar events without session IDs (within last 2 hours)
+          const { supabase } = require('../config/database');
+          const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
+          
+          const { data: recentEvents, error } = await supabase
+            .from('calendar_events')
+            .select('*')
+            .is('chatterbox_session_id', null)
+            .gte('start_datetime', twoHoursAgo.toISOString())
+            .order('start_datetime', { ascending: false });
+          
+          if (error) {
+            logger.error('Failed to query recent calendar events', {
+              sessionId,
+              error: error.message
+            });
+          } else if (recentEvents && recentEvents.length > 0) {
+            // For now, link to the most recent event without a session ID
+            // In a production system, you might want more sophisticated matching
+            const eventToLink = recentEvents[0];
+            
+            // Link this session to the calendar event
+            calendarEvent = await calendarController.linkSessionToEvent(eventToLink.conference_id, sessionId);
+            
+            logger.info('Linked ChatterBox session to recent calendar event', {
+              sessionId,
+              conferenceId: eventToLink.conference_id,
+              eventSummary: eventToLink.summary,
+              eventId: eventToLink.calendar_event_id
+            });
+          }
+        } catch (linkingError) {
+          logger.warn('Could not link session to recent calendar event', {
+            sessionId,
+            error: linkingError.message
+          });
+        }
+      }
       
       if (calendarEvent) {
         // Create meeting record using calendar event data
         meeting = await databaseService.createMeeting({
           calendar_event_id: calendarEvent.calendar_event_id,
           chatterbox_session_id: sessionId,
-          conference_id: conferenceId,
+          conference_id: calendarEvent.conference_id,
           meeting_title: calendarEvent.summary, // Use actual meeting title!
           meeting_description: calendarEvent.description,
           meeting_started_at: calendarEvent.start_datetime || new Date(timestamp * 1000),
@@ -125,7 +162,7 @@ async function handleSessionStarted(payload) {
         
         logger.logMeetingEvent(meeting.id, 'meeting_created_from_calendar_event', {
           sessionId,
-          conferenceId,
+          conferenceId: calendarEvent.conference_id,
           calendarEventId: calendarEvent.calendar_event_id,
           meetingTitle: calendarEvent.summary
         });
@@ -134,8 +171,8 @@ async function handleSessionStarted(payload) {
         meeting = await databaseService.createMeeting({
           calendar_event_id: `chatterbox-${sessionId}`,
           chatterbox_session_id: sessionId,
-          conference_id: conferenceId,
-          meeting_title: `Google Meet ${conferenceId}`,
+          conference_id: 'unknown',
+          meeting_title: `Meeting ${sessionId.substring(0, 8)}`,
           meeting_description: 'Meeting started via ChatterBox (no calendar event found)',
           status: 'recording',
           bot_join_status: 'joined',
@@ -144,7 +181,6 @@ async function handleSessionStarted(payload) {
         
         logger.logMeetingEvent(meeting.id, 'meeting_created_fallback', {
           sessionId,
-          conferenceId,
           reason: 'no_calendar_event_found'
         });
       }
