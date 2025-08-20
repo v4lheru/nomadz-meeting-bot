@@ -8,7 +8,7 @@ const { errorHandler } = require('./middlewares/errorHandler');
 const rateLimit = require('./middlewares/rateLimit');
 
 // Import controllers with error handling
-let webhookController, chatterboxDirectController, healthController, pollStatusJob, cleanupJob;
+let webhookController, chatterboxDirectController, calendarController, healthController, pollStatusJob, cleanupJob;
 
 try {
   logger.info('Loading webhook controller...');
@@ -25,6 +25,15 @@ try {
   logger.info('ChatterBox direct controller loaded successfully');
 } catch (error) {
   logger.error('Failed to load ChatterBox direct controller:', error);
+  throw error;
+}
+
+try {
+  logger.info('Loading calendar controller...');
+  calendarController = require('./controllers/calendarController');
+  logger.info('Calendar controller loaded successfully');
+} catch (error) {
+  logger.error('Failed to load calendar controller:', error);
   throw error;
 }
 
@@ -120,6 +129,10 @@ app.post('/webhook/chatterbox', webhookController.handleChatterBoxWebhook);
 // NEW: Direct ChatterBox webhook endpoints (more reliable)
 app.post('/webhook/chatterbox-direct', chatterboxDirectController.handleChatterBoxDirectWebhook);
 app.post('/webhook/meeting-direct', chatterboxDirectController.createMeetingAndJoinBot);
+
+// NEW: Calendar events endpoint for n8n
+app.post('/api/calendar/events', calendarController.storeCalendarEvent);
+app.get('/api/calendar/events/:eventId', calendarController.getCalendarEvent);
 logger.info('Webhook endpoints configured');
 
 // API endpoints
