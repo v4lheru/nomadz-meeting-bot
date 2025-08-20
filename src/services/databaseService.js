@@ -172,6 +172,38 @@ class DatabaseService {
   }
 
   /**
+   * Get meeting by conference ID
+   */
+  async getMeetingByConferenceId(conferenceId) {
+    try {
+      const { data, error } = await supabase
+        .from('meetings')
+        .select('*')
+        .eq('conference_id', conferenceId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+      
+      if (error) {
+        if (error.code === 'PGRST116') {
+          // No rows returned
+          return null;
+        }
+        throw error;
+      }
+      
+      return data;
+    } catch (error) {
+      logger.error('Failed to get meeting by conference ID', {
+        conferenceId,
+        error: error.message,
+        timestamp: new Date().toISOString()
+      });
+      throw error;
+    }
+  }
+
+  /**
    * Log processing step
    */
   async logProcessingStep(meetingId, step, status, metadata = {}, errorMessage = null, errorDetails = null) {
