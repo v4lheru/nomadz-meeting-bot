@@ -84,27 +84,76 @@ const handleChatterBoxDirectWebhook = [
 /**
  * Handle session started event
  * This is when the bot successfully joins the meeting
+ * Since n8n calls ChatterBox directly, we create the meeting record here
  */
 async function handleSessionStarted(payload) {
   const { sessionId, timestamp } = payload;
   
   logger.logChatterBoxEvent(sessionId, 'session_started', { timestamp });
   
-  // Find meeting by session ID and update status
-  const meeting = await databaseService.getMeetingBySessionId(sessionId);
-  if (meeting) {
+  // Check if meeting already exists (in case of duplicate webhooks)
+  let meeting = await databaseService.getMeetingBySessionId(sessionId);
+  
+  if (!meeting) {
+    // Create new meeting record since n8n called ChatterBox directly
+    try {
+      // Try to get additional session data from ChatterBox
+      const chatterboxService = require('../services/chatterboxService');
+      let sessionData = null;
+      let meetingTitle = `Meeting ${sessionId.substring(0, 8)}`;
+      let conferenceId = 'unknown';
+      
+      try {
+        sessionData = await chatterboxService.getSessionData(sessionId);
+        if (sessionData.meetingId) {
+          conferenceId = sessionData.meetingId;
+        }
+        // Use a more descriptive title if we have conference ID
+        if (conferenceId !== 'unknown') {
+          meetingTitle = `Google Meet ${conferenceId}`;
+        }
+      } catch (error) {
+        logger.warn('Could not get session data for meeting creation', {
+          sessionId,
+          error: error.message
+        });
+      }
+      
+      // Create meeting record when bot starts (ChatterBox-First architecture)
+      meeting = await databaseService.createMeeting({
+        calendar_event_id: `chatterbox-${sessionId}`, // Unique identifier
+        chatterbox_session_id: sessionId,
+        conference_id: conferenceId,
+        meeting_title: meetingTitle,
+        meeting_description: 'Meeting started via ChatterBox direct integration',
+        status: 'recording',
+        bot_join_status: 'joined',
+        meeting_started_at: new Date(timestamp * 1000)
+      });
+      
+      logger.logMeetingEvent(meeting.id, 'meeting_created_from_chatterbox', {
+        sessionId,
+        conferenceId,
+        meetingTitle
+      });
+      
+    } catch (error) {
+      logger.error('Failed to create meeting record from ChatterBox started event', {
+        sessionId,
+        error: error.message,
+        timestamp: new Date().toISOString()
+      });
+      return; // Exit early if we can't create the meeting record
+    }
+  } else {
+    // Update existing meeting status
     await databaseService.updateMeeting(meeting.id, {
       status: 'recording',
       bot_join_status: 'joined'
     });
-    
-    logger.logMeetingEvent(meeting.id, 'recording_started', { sessionId });
-  } else {
-    logger.warn('Meeting not found for started session', {
-      sessionId,
-      timestamp: new Date().toISOString()
-    });
   }
+  
+  logger.logMeetingEvent(meeting.id, 'recording_started', { sessionId });
 }
 
 /**
