@@ -215,11 +215,25 @@ class PollStatusJob {
             });
           }
         } catch (sessionError) {
-          logger.error('Failed to get session data for long-running meeting', {
-            meetingId: meeting.id,
-            sessionId: meeting.chatterbox_session_id,
-            error: sessionError.message
-          });
+          // If session returns 404, it's expired - mark meeting as failed
+          if (sessionError.message.includes('404') || sessionError.message.includes('Not Found')) {
+            logger.warn('ChatterBox session expired for long-running meeting, marking as failed', {
+              meetingId: meeting.id,
+              sessionId: meeting.chatterbox_session_id,
+              statusAgeMinutes
+            });
+            
+            await databaseService.updateMeeting(meeting.id, {
+              status: 'failed',
+              processing_completed_at: new Date().toISOString()
+            });
+          } else {
+            logger.error('Failed to get session data for long-running meeting', {
+              meetingId: meeting.id,
+              sessionId: meeting.chatterbox_session_id,
+              error: sessionError.message
+            });
+          }
         }
       }
 
