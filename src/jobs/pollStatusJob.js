@@ -118,14 +118,36 @@ class PollStatusJob {
       const statusAge = Date.now() - new Date(meeting.updated_at).getTime();
       const statusAgeMinutes = Math.floor(statusAge / (1000 * 60));
 
-      // If meeting has been in bot_joined status for more than 2 minutes, check if recording is ready
-      if (meeting.status === 'bot_joined' && statusAgeMinutes > 2) {
-        logger.warn('Meeting stuck in bot_joined status', {
+      // If meeting has been in bot_joined status for more than 3 hours, mark as failed
+      if (meeting.status === 'bot_joined' && statusAgeMinutes > 180) {
+        logger.warn('Meeting stuck in bot_joined status for too long, marking as failed', {
           meetingId: meeting.id,
           title: meeting.meeting_title,
           statusAgeMinutes,
+          statusAgeHours: Math.round(statusAgeMinutes / 60 * 10) / 10,
           sessionId: meeting.chatterbox_session_id
         });
+
+        // Mark as failed to stop continuous polling
+        await databaseService.updateMeeting(meeting.id, {
+          status: 'failed',
+          processing_completed_at: new Date().toISOString()
+        });
+        
+        return; // Skip further processing for this meeting
+      }
+
+      // If meeting has been in bot_joined status for more than 2 minutes, check if recording is ready
+      if (meeting.status === 'bot_joined' && statusAgeMinutes > 2) {
+        // Only log every 10 minutes to reduce log spam
+        if (statusAgeMinutes % 10 === 0) {
+          logger.warn('Meeting stuck in bot_joined status', {
+            meetingId: meeting.id,
+            title: meeting.meeting_title,
+            statusAgeMinutes,
+            sessionId: meeting.chatterbox_session_id
+          });
+        }
 
         // Try to get session data to see if recording is available
         try {
@@ -150,11 +172,14 @@ class PollStatusJob {
             });
           }
         } catch (sessionError) {
-          logger.error('Failed to get session data for stuck meeting', {
-            meetingId: meeting.id,
-            sessionId: meeting.chatterbox_session_id,
-            error: sessionError.message
-          });
+          // Only log session errors every 10 minutes to reduce spam
+          if (statusAgeMinutes % 10 === 0) {
+            logger.error('Failed to get session data for stuck meeting', {
+              meetingId: meeting.id,
+              sessionId: meeting.chatterbox_session_id,
+              error: sessionError.message
+            });
+          }
         }
       }
 
