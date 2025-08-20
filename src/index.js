@@ -8,7 +8,7 @@ const { errorHandler } = require('./middlewares/errorHandler');
 const rateLimit = require('./middlewares/rateLimit');
 
 // Import controllers with error handling
-let webhookController, healthController, pollStatusJob, cleanupJob;
+let webhookController, chatterboxDirectController, healthController, pollStatusJob, cleanupJob;
 
 try {
   logger.info('Loading webhook controller...');
@@ -16,6 +16,15 @@ try {
   logger.info('Webhook controller loaded successfully');
 } catch (error) {
   logger.error('Failed to load webhook controller:', error);
+  throw error;
+}
+
+try {
+  logger.info('Loading ChatterBox direct controller...');
+  chatterboxDirectController = require('./controllers/chatterboxDirectController');
+  logger.info('ChatterBox direct controller loaded successfully');
+} catch (error) {
+  logger.error('Failed to load ChatterBox direct controller:', error);
   throw error;
 }
 
@@ -107,6 +116,10 @@ logger.info('Health check endpoint configured');
 logger.info('Setting up webhook endpoints...');
 app.post('/webhook/meeting-started', webhookController.handleMeetingStarted);
 app.post('/webhook/chatterbox', webhookController.handleChatterBoxWebhook);
+
+// NEW: Direct ChatterBox webhook endpoints (more reliable)
+app.post('/webhook/chatterbox-direct', chatterboxDirectController.handleChatterBoxDirectWebhook);
+app.post('/webhook/meeting-direct', chatterboxDirectController.createMeetingAndJoinBot);
 logger.info('Webhook endpoints configured');
 
 // API endpoints

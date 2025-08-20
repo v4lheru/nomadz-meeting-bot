@@ -5,6 +5,7 @@ A robust Node.js service deployed on Railway that automatically handles meeting 
 ## 🎯 Features
 
 - **Automated Meeting Bot Joining** via ChatterBox API
+- **Auto-Leave on Silence** (bot leaves after 20 minutes of no transcript activity)
 - **Large File Handling** (stream processing for .mkv files)
 - **Google Drive Integration** (recordings + transcript documents)
 - **Slack Notifications** with direct links
